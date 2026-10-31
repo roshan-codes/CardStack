@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/card_model.dart';
 import '../widgets/card_logo_widgets.dart';
 import '../services/card_network_detector.dart';
+import 'card_scanner_screen.dart';
 
 class AddCardScreen extends StatefulWidget {
   final ValueChanged<CardModel> onCardAdded;
@@ -93,6 +94,53 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
   void _onExpiryChanged() {
     setState(() {});
+  }
+
+  void _openCardScanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CardScannerScreen(
+          onCardScanned: (scannedCard) {
+            setState(() {
+              _numberController.text = scannedCard.cardNumber;
+              if (scannedCard.cardholderName.isNotEmpty &&
+                  (_nameController.text.isEmpty ||
+                      _nameController.text == 'Card Holder')) {
+                _nameController.text = scannedCard.cardholderName;
+              }
+              if (scannedCard.expiryMonth != null &&
+                  scannedCard.expiryYear != null) {
+                final yy = scannedCard.expiryYear!.length == 4
+                    ? scannedCard.expiryYear!.substring(2)
+                    : scannedCard.expiryYear!;
+                _expiryController.text = '${scannedCard.expiryMonth}/$yy';
+              }
+              if (scannedCard.bankName.isNotEmpty &&
+                  (_bankController.text.isEmpty ||
+                      _bankController.text == 'MasterCard')) {
+                _bankController.text = scannedCard.bankName;
+              }
+            });
+            _onNumberChanged();
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded,
+                        color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('Card number scanned from card!'),
+                  ],
+                ),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   void _submit() {
@@ -299,6 +347,28 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     LengthLimitingTextInputFormatter(19),
                     _CardNumberInputFormatter(),
                   ],
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 6.0),
+                    child: Tooltip(
+                      message: 'Scan card number',
+                      child: IconButton(
+                        key: const Key('scan_card_number_button'),
+                        icon: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6C5CE7).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.document_scanner_rounded,
+                            size: 19,
+                            color: Color(0xFF6C5CE7),
+                          ),
+                        ),
+                        onPressed: _openCardScanner,
+                      ),
+                    ),
+                  ),
                   validator: (v) {
                     if (v == null || v.replaceAll(' ', '').length < 13) {
                       return 'Enter a valid 13-19 digit card number';
@@ -504,6 +574,7 @@ class _InputField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
+  final Widget? suffixIcon;
 
   const _InputField({
     required this.controller,
@@ -514,6 +585,7 @@ class _InputField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
     this.validator,
+    this.suffixIcon,
   });
 
   @override
@@ -542,6 +614,7 @@ class _InputField extends StatelessWidget {
           color: isDark ? Colors.white54 : const Color(0xFF7E8494),
           size: 22,
         ),
+        suffixIcon: suffixIcon,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

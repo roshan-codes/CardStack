@@ -23,16 +23,14 @@ void main() {
     await tester.tap(addButton);
     await tester.pumpAndSettle();
 
-    // Verify dialog appears in the center
-    expect(find.byType(Dialog), findsOneWidget);
-    expect(find.text('Add New Card'), findsOneWidget);
-    expect(find.text('Scan Card'), findsOneWidget);
-    expect(find.text('Add Card Manually'), findsOneWidget);
+    // Verify AddCardScreen opens directly by default (no dialog)
+    expect(find.text('ADD CARD'), findsOneWidget);
+    expect(find.byKey(const Key('submit_add_card_button')), findsOneWidget);
+    expect(find.byKey(const Key('scan_card_number_button')), findsOneWidget);
 
-    // Tap Cancel to dismiss
-    await tester.tap(find.text('Cancel'));
+    // Tap back button to return to wallet
+    await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
 
     // Tap first card to open details
     await tester.tap(find.text('HDFC Millennia'));

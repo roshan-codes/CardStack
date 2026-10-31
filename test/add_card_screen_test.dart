@@ -64,5 +64,30 @@ void main() {
       expect(addedCard!.expiryMonth, '11');
       expect(addedCard!.expiryYear, '2028');
     });
+
+    testWidgets('small scan option in card number field launches scanner',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AddCardScreen(
+            onCardAdded: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find the small scan option inside the Card Number field
+      final scanButton = find.byKey(const Key('scan_card_number_button'));
+      expect(scanButton, findsOneWidget);
+
+      // Tap scan button
+      await tester.tap(scanButton);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Verify CardScannerScreen appears
+      expect(find.text('Scan Payment Card'), findsOneWidget);
+      expect(find.text('Offline Card Scanner'), findsOneWidget);
+    });
   });
 }

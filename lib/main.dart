@@ -4,7 +4,6 @@ import 'models/card_model.dart';
 import 'screens/add_card_screen.dart';
 import 'screens/auth_guard_screen.dart';
 import 'screens/card_detail_screen.dart';
-import 'screens/card_scanner_screen.dart';
 import 'services/auth_service.dart';
 
 void main() {
@@ -102,207 +101,6 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
           c.nickname.toLowerCase().contains(query);
       return matchesFilter && matchesSearch;
     }).toList();
-  }
-
-  void _showAddCardDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.credit_card_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Add New Card',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Choose how you want to add your card',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Option 1: Scan Card
-                InkWell(
-                  key: const Key('scan_card_option'),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _onScanCardSelected();
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.document_scanner_rounded,
-                            color: theme.colorScheme.primary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Scan Card',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Scan card numbers using camera',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Option 2: Add Card Manually
-                InkWell(
-                  key: const Key('add_card_manually_option'),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _onAddCardManuallySelected();
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.edit_note_rounded,
-                            color: theme.colorScheme.secondary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Add Card Manually',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Enter card details by hand',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _onScanCardSelected() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CardScannerScreen(
-          onCardScanned: (newCard) {
-            setState(() {
-              _cards.insert(0, newCard);
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Text('${newCard.nickname} scanned and added!'),
-                  ],
-                ),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-        ),
-      ),
-    );
   }
 
   void _onAddCardManuallySelected() {
@@ -414,9 +212,10 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
                   ),
                 ),
                 IconButton(
+                  key: const Key('add_card_appbar_button'),
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 24),
                   tooltip: 'Add Card',
-                  onPressed: _showAddCardDialog,
+                  onPressed: _onAddCardManuallySelected,
                 ),
                 const SizedBox(width: 8),
               ],
