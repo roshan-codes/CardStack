@@ -423,21 +423,16 @@ class _ScannedCardConfirmSheetState extends State<_ScannedCardConfirmSheet> {
   void initState() {
     super.initState();
     final d = widget.initialData;
-    _bankController =
-        TextEditingController(text: d.bankName ?? 'HDFC Bank');
+    _bankController = TextEditingController(text: d.bankName ?? '');
     _nicknameController = TextEditingController(
-      text: d.bankName != null ? '${d.bankName} Card' : 'Scanned Card',
+      text: (d.bankName != null && d.bankName!.isNotEmpty)
+          ? '${d.bankName} Card'
+          : '',
     );
-    _numberController = TextEditingController(
-      text: d.cardNumber ?? '4532 1234 5678 9012',
-    );
-    _nameController = TextEditingController(
-      text: d.cardholderName ?? 'Rahul Sharma',
-    );
-    _expiryMonthController =
-        TextEditingController(text: d.expiryMonth ?? '12');
-    _expiryYearController =
-        TextEditingController(text: d.expiryYear ?? '2029');
+    _numberController = TextEditingController(text: d.cardNumber ?? '');
+    _nameController = TextEditingController(text: d.cardholderName ?? '');
+    _expiryMonthController = TextEditingController(text: d.expiryMonth ?? '');
+    _expiryYearController = TextEditingController(text: d.expiryYear ?? '');
     _cardNetwork = d.cardNetwork ?? 'Visa';
   }
 
