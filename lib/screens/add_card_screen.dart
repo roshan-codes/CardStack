@@ -151,18 +151,23 @@ class _AddCardScreenState extends State<AddCardScreen> {
             });
             _onNumberChanged();
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            final hasExp = scannedCard.expiryMonth != null &&
+                scannedCard.expiryYear != null;
+            final msg = hasExp
+                ? 'Card number & expiry (${_expiryController.text}) scanned!'
+                : 'Card number scanned from card!';
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 content: Row(
                   children: [
-                    Icon(Icons.check_circle_rounded,
+                    const Icon(Icons.check_circle_rounded,
                         color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text('Card number scanned from card!'),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(msg)),
                   ],
                 ),
                 behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
+                duration: const Duration(seconds: 2),
               ),
             );
           },

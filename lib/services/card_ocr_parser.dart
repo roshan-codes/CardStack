@@ -117,17 +117,24 @@ class CardOcrParser {
         }
       }
 
-      // 4. Detect Expiry Date (MM/YY or MM/YYYY or VALID THRU MM/YY)
+      // 4. Detect Expiry Date (Two-pass strategy: Prioritize THRU / EXPIRES keywords over issue dates)
       if (foundExpiryMonth == null || foundExpiryYear == null) {
-        final expMatch = RegExp(r'\b(0[1-9]|1[0-2])\s*[\/\-]\s*([0-9]{2}|[0-9]{4})\b')
-            .firstMatch(line);
-        if (expMatch != null) {
-          foundExpiryMonth = expMatch.group(1);
-          var yr = expMatch.group(2)!;
-          if (yr.length == 4) {
-            yr = yr.substring(2);
+        // Check for explicit expiry keywords on the line
+        final explicitExp = RegExp(
+          r'(?:VALID\s*THRU|GOOD\s*THRU|EXPIRES?|EXPIRY|EXP(?:\s*DATE)?|UNTIL)\s*[:.]?\s*([0-1]?[0-9]|[Oo][1-9])\s*[\/\-\s]\s*([0-9]{2}|[0-9]{4})\b',
+          caseSensitive: false,
+        ).firstMatch(line);
+
+        if (explicitExp != null) {
+          var m = explicitExp.group(1)!.replaceAll(RegExp(r'[Oo]'), '0');
+          if (m.length == 1) m = '0$m';
+          var yr = explicitExp.group(2)!;
+          if (yr.length == 4) yr = yr.substring(2);
+          final monthInt = int.tryParse(m) ?? 0;
+          if (monthInt >= 1 && monthInt <= 12) {
+            foundExpiryMonth = m;
+            foundExpiryYear = yr;
           }
-          foundExpiryYear = yr;
         }
       }
 
@@ -142,6 +149,61 @@ class CardOcrParser {
           !upper.contains('CREDIT') &&
           RegExp(r'^[A-Z]{2,15}\s+[A-Z]{2,15}(\s+[A-Z]{2,15})?$').hasMatch(upper)) {
         foundCardholderName = line;
+      }
+    }
+
+    // Pass 2 for Expiry Date: If explicit keyword wasn't on the same line, check multi-line or standalone
+    if (foundExpiryMonth == null || foundExpiryYear == null) {
+      for (int i = 0; i < cleanedLines.length; i++) {
+        final line = cleanedLines[i];
+        final upper = line.toUpperCase();
+
+        // Check if previous line had "VALID THRU" / "EXPIRES"
+        if (upper == 'VALID THRU' ||
+            upper == 'GOOD THRU' ||
+            upper == 'EXPIRES' ||
+            upper == 'EXP' ||
+            upper.endsWith('THRU')) {
+          if (i + 1 < cleanedLines.length) {
+            final nextMatch = RegExp(r'\b([0-1]?[0-9]|[Oo][1-9])\s*[\/\-]\s*([0-9]{2}|[0-9]{4})\b')
+                .firstMatch(cleanedLines[i + 1]);
+            if (nextMatch != null) {
+              var m = nextMatch.group(1)!.replaceAll(RegExp(r'[Oo]'), '0');
+              if (m.length == 1) m = '0$m';
+              var yr = nextMatch.group(2)!;
+              if (yr.length == 4) yr = yr.substring(2);
+              final monthInt = int.tryParse(m) ?? 0;
+              if (monthInt >= 1 && monthInt <= 12) {
+                foundExpiryMonth = m;
+                foundExpiryYear = yr;
+                break;
+              }
+            }
+          }
+        }
+
+        // Check standalone MM/YY, skipping issue dates ("FROM", "START")
+        if (!upper.contains('FROM') && !upper.contains('START') && !upper.contains('SINCE')) {
+          final expMatch = RegExp(r'\b(0[1-9]|1[0-2]|[Oo][1-9])\s*[\/\-]\s*([0-9]{2}|[0-9]{4})\b')
+              .firstMatch(line);
+          if (expMatch != null) {
+            var m = expMatch.group(1)!.replaceAll(RegExp(r'[Oo]'), '0');
+            if (m.length == 1) m = '0$m';
+            var yr = expMatch.group(2)!;
+            if (yr.length == 4) yr = yr.substring(2);
+            foundExpiryMonth = m;
+            foundExpiryYear = yr;
+            break;
+          }
+
+          // Check space-separated "MM YY" (e.g. 08 29)
+          final spaceMatch = RegExp(r'\b(0[1-9]|1[0-2])\s+([2-3][0-9])\b').firstMatch(line);
+          if (spaceMatch != null) {
+            foundExpiryMonth = spaceMatch.group(1);
+            foundExpiryYear = spaceMatch.group(2);
+            break;
+          }
+        }
       }
     }
 
