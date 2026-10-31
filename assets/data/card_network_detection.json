@@ -1,0 +1,99 @@
+{
+  "card_network_detection": {
+    "enabled": true,
+    "method": "iin_prefix_matching",
+    "detect_from": "card_number",
+    "networks": [
+      {
+        "name": "Visa",
+        "code": "visa",
+        "prefix_rules": [
+          {
+            "start": "4",
+            "length": 1
+          }
+        ],
+        "logo": "assets/cards/visa.png"
+      },
+      {
+        "name": "Mastercard",
+        "code": "mastercard",
+        "prefix_rules": [
+          {
+            "start": "51",
+            "end": "55",
+            "length": 2
+          },
+          {
+            "start": "2221",
+            "end": "2720",
+            "length": 4
+          }
+        ],
+        "logo": "assets/cards/mastercard.png"
+      },
+      {
+        "name": "RuPay",
+        "code": "rupay",
+        "prefix_rules": [
+          {
+            "start": "60",
+            "length": 2
+          },
+          {
+            "start": "65",
+            "length": 2
+          },
+          {
+            "start": "81",
+            "length": 2
+          },
+          {
+            "start": "82",
+            "length": 2
+          },
+          {
+            "start": "508",
+            "length": 3
+          }
+        ],
+        "logo": "assets/cards/rupay.png"
+      },
+      {
+        "name": "American Express",
+        "code": "amex",
+        "prefix_rules": [
+          {
+            "start": "34",
+            "length": 2
+          },
+          {
+            "start": "37",
+            "length": 2
+          }
+        ],
+        "logo": "assets/cards/amex.png"
+      },
+      {
+        "name": "Discover",
+        "code": "discover",
+        "prefix_rules": [
+          {
+            "start": "6011",
+            "length": 4
+          },
+          {
+            "start": "65",
+            "length": 2
+          }
+        ],
+        "logo": "assets/cards/discover.png"
+      }
+    ],
+    "fallback": {
+      "name": "Unknown",
+      "code": "unknown",
+      "allow_manual_selection": true
+    }
+  }
+}
