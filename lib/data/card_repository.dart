@@ -3,150 +3,61 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/card_model.dart';
+import '../services/vault_encryption_service.dart';
 
 class CardRepository {
   static const String _assetPath = 'assets/data/cards.json';
 
-  /// Hardcoded fallback / initial mock JSON in case assets are not available
-  /// or when running pure Dart unit tests.
   static const String rawMockCardsJson = '''{
   "cards": [
     {
-      "id": "card_001",
+      "id": "card_hdfc_millennia",
       "nickname": "HDFC Millennia",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "HDFC Bank",
+      "cardholder_name": "RAHUL SHARMA",
+      "bank_name": "HDFC BANK",
       "card_type": "credit",
       "card_network": "Visa",
       "card_number": "XXXX XXXX XXXX 4567",
       "expiry_month": "12",
       "expiry_year": "2028",
       "cvv": null,
-      "color": "#2455C3"
+      "color": "#1E40AF"
     },
     {
-      "id": "card_002",
+      "id": "card_icici_amazon",
       "nickname": "ICICI Amazon Pay",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "ICICI Bank",
+      "cardholder_name": "RAHUL SHARMA",
+      "bank_name": "ICICI BANK",
       "card_type": "credit",
       "card_network": "Mastercard",
       "card_number": "XXXX XXXX XXXX 8765",
       "expiry_month": "08",
       "expiry_year": "2029",
       "cvv": null,
-      "color": "#D83B45"
+      "color": "#DC2626"
     },
     {
-      "id": "card_003",
-      "nickname": "SBI SimplyCLICK",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "SBI Card",
-      "card_type": "credit",
-      "card_network": "Visa",
-      "card_number": "XXXX XXXX XXXX 2341",
-      "expiry_month": "04",
-      "expiry_year": "2027",
-      "cvv": null,
-      "color": "#202A3C"
-    },
-    {
-      "id": "card_004",
-      "nickname": "Axis Flipkart",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "Axis Bank",
-      "card_type": "credit",
-      "card_network": "Mastercard",
-      "card_number": "XXXX XXXX XXXX 9988",
-      "expiry_month": "11",
-      "expiry_year": "2030",
-      "cvv": null,
-      "color": "#7029C8"
-    },
-    {
-      "id": "card_005",
-      "nickname": "Kotak League",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "Kotak Mahindra Bank",
-      "card_type": "credit",
-      "card_network": "Visa",
-      "card_number": "XXXX XXXX XXXX 1122",
-      "expiry_month": "06",
-      "expiry_year": "2028",
-      "cvv": null,
-      "color": "#D47B35"
-    },
-    {
-      "id": "card_006",
-      "nickname": "HDFC Salary Account",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "HDFC Bank",
+      "id": "card_sbi_simplysave",
+      "nickname": "SBI SimplySAVE",
+      "cardholder_name": "RAHUL SHARMA",
+      "bank_name": "SBI BANK",
       "card_type": "debit",
       "card_network": "RuPay",
-      "card_number": "XXXX XXXX XXXX 7788",
-      "expiry_month": "03",
-      "expiry_year": "2029",
+      "card_number": "XXXX XXXX XXXX 1122",
+      "expiry_month": "11",
+      "expiry_year": "2027",
       "cvv": null,
-      "color": "#147E9C"
-    },
-    {
-      "id": "card_007",
-      "nickname": "SBI Global Debit",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "State Bank of India",
-      "card_type": "debit",
-      "card_network": "Visa",
-      "card_number": "XXXX XXXX XXXX 6655",
-      "expiry_month": "09",
-      "expiry_year": "2028",
-      "cvv": null,
-      "color": "#2455A4"
-    },
-    {
-      "id": "card_008",
-      "nickname": "Axis Burgundy Debit",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "Axis Bank",
-      "card_type": "debit",
-      "card_network": "Mastercard",
-      "card_number": "XXXX XXXX XXXX 3344",
-      "expiry_month": "05",
-      "expiry_year": "2030",
-      "cvv": null,
-      "color": "#9B2448"
-    },
-    {
-      "id": "card_009",
-      "nickname": "Forex Travel Card",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "BookMyForex",
-      "card_type": "prepaid",
-      "card_network": "Visa",
-      "card_number": "XXXX XXXX XXXX 5566",
-      "expiry_month": "07",
-      "expiry_year": "2029",
-      "cvv": null,
-      "color": "#168C78"
-    },
-    {
-      "id": "card_010",
-      "nickname": "Amazon Gift Card",
-      "cardholder_name": "Rahul Sharma",
-      "bank_name": "Amazon",
-      "card_type": "gift",
-      "card_network": "Other",
-      "card_number": "DEMO-GIFT-0010",
-      "expiry_month": null,
-      "expiry_year": null,
-      "cvv": null,
-      "color": "#E78B27"
+      "color": "#0F172A"
     }
   ]
 }''';
 
-
   static const String _storageFileName = 'cards_store.json';
   static List<CardModel>? _inMemoryTestStore;
+  final VaultEncryptionService _encryptionService;
+
+  CardRepository({VaultEncryptionService? encryptionService})
+      : _encryptionService = encryptionService ?? VaultEncryptionService();
 
   /// Loads cards from persistent device storage, falling back to assets/mock data on first launch.
   Future<List<CardModel>> loadCards() async {
@@ -160,8 +71,13 @@ class CardRepository {
       if (file != null && await file.exists()) {
         final content = await file.readAsString();
         if (content.trim().isNotEmpty) {
-          final loaded = parseCards(content);
+          final decrypted = await _encryptionService.decrypt(content);
+          final loaded = parseCards(decrypted);
           if (loaded.isNotEmpty) {
+            // Automatically upgrade legacy plaintext file to AES-256 encrypted storage
+            if (!content.contains(VaultEncryptionService.cipherIdentifier)) {
+              await saveCards(loaded);
+            }
             return loaded;
           }
         }
@@ -184,6 +100,17 @@ class CardRepository {
     return initialCards;
   }
 
+  /// Completely wipes all stored cards from storage and test store.
+  Future<void> clearAllCards() async {
+    _inMemoryTestStore = [];
+    try {
+      final file = await _getStorageFile();
+      if (file != null && await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+  }
+
   /// Saves the complete list of cards atomically to disk to prevent data corruption.
   Future<void> saveCards(List<CardModel> cards) async {
     _inMemoryTestStore = List<CardModel>.from(cards);
@@ -196,8 +123,11 @@ class CardRepository {
           'updated_at': DateTime.now().toIso8601String(),
           'cards': cards.map((c) => c.toJson()).toList(),
         };
+        final plainJson = jsonEncode(data);
+        final encryptedPayload = await _encryptionService.encrypt(plainJson);
+
         final tempFile = File('${file.path}.tmp');
-        await tempFile.writeAsString(jsonEncode(data), flush: true);
+        await tempFile.writeAsString(encryptedPayload, flush: true);
         await tempFile.rename(file.path);
       }
     } catch (_) {

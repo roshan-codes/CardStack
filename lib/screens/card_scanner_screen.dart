@@ -3,12 +3,18 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../models/card_model.dart';
+import '../services/card_network_detector.dart';
 import '../services/card_ocr_parser.dart';
 
 class CardScannerScreen extends StatefulWidget {
   final ValueChanged<CardModel> onCardScanned;
+  final List<String>? testOcrLines;
 
-  const CardScannerScreen({super.key, required this.onCardScanned});
+  const CardScannerScreen({
+    super.key,
+    required this.onCardScanned,
+    this.testOcrLines,
+  });
 
   @override
   State<CardScannerScreen> createState() => _CardScannerScreenState();
@@ -114,9 +120,9 @@ class _CardScannerScreenState extends State<CardScannerScreen>
     });
 
     try {
+      List<String> lines = [];
       if (_cameraController != null && _isCameraInitialized) {
         final image = await _cameraController!.takePicture();
-        List<String> lines = [];
         try {
           final inputImage = InputImage.fromFilePath(image.path);
           final recognizedText = await _textRecognizer.processImage(inputImage);
@@ -133,21 +139,66 @@ class _CardScannerScreenState extends State<CardScannerScreen>
             }
           } catch (_) {}
         }
-
-        final parsed = CardOcrParser.parse(lines);
-        if (mounted) {
-          _showConfirmationSheet(parsed);
-        }
-      } else {
-        // Fallback demo card if on emulator or camera failed
-        _simulateSampleScan();
+      } else if (widget.testOcrLines != null) {
+        lines = widget.testOcrLines!;
       }
-    } catch (e) {
+
+      final parsed = CardOcrParser.parse(lines);
+      final hasCardNumber = parsed.cardNumber != null &&
+          parsed.cardNumber!.replaceAll(RegExp(r'\D'), '').length >= 12;
+
+      // If scanner is not able to detect readable card number, do not add dummy details
+      if (!hasCardNumber) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      color: Colors.white, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Card number not readable. Please ensure good lighting and align card in frame.',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
       if (mounted) {
+        _showConfirmationSheet(parsed);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not scan card. Error: $e'),
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Card number not readable. Please ensure good lighting and align card in frame.',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Color(0xFFDC2626),
             behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -158,18 +209,6 @@ class _CardScannerScreenState extends State<CardScannerScreen>
         });
       }
     }
-  }
-
-  void _simulateSampleScan() {
-    final sampleParsed = CardOcrParser.parse([
-      'HDFC Bank',
-      'Millennia Credit',
-      '4532 9988 7766 1234',
-      'VALID THRU 11/29',
-      'RAHUL SHARMA',
-      'VISA',
-    ]);
-    _showConfirmationSheet(sampleParsed);
   }
 
   void _showConfirmationSheet(ScannedCardData data) {
@@ -433,7 +472,12 @@ class _ScannedCardConfirmSheetState extends State<_ScannedCardConfirmSheet> {
     _nameController = TextEditingController(text: d.cardholderName ?? '');
     _expiryMonthController = TextEditingController(text: d.expiryMonth ?? '');
     _expiryYearController = TextEditingController(text: d.expiryYear ?? '');
-    _cardNetwork = d.cardNetwork ?? 'Visa';
+    final detectedNet = d.cardNumber != null
+        ? CardNetworkDetector.detect(d.cardNumber!).name
+        : 'Visa';
+    _cardNetwork = (d.cardNetwork != null && d.cardNetwork!.isNotEmpty)
+        ? d.cardNetwork!
+        : (detectedNet != 'Unknown' ? detectedNet : 'Visa');
   }
 
   @override
@@ -540,6 +584,7 @@ class _ScannedCardConfirmSheetState extends State<_ScannedCardConfirmSheet> {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      key: const Key('scanned_bank_field'),
                       controller: _bankController,
                       decoration: const InputDecoration(
                         labelText: 'Bank Name',
@@ -552,6 +597,7 @@ class _ScannedCardConfirmSheetState extends State<_ScannedCardConfirmSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
+                      key: const Key('scanned_nickname_field'),
                       controller: _nicknameController,
                       decoration: const InputDecoration(
                         labelText: 'Nickname',

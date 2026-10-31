@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:neopop/neopop.dart';
 import '../models/card_model.dart';
 import '../widgets/card_logo_widgets.dart';
 import '../services/card_network_detector.dart';
@@ -27,7 +28,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
-  final TextEditingController _bankController = TextEditingController(text: 'MasterCard');
+  final TextEditingController _bankController = TextEditingController();
   late final TextEditingController _nicknameController;
 
   String _detectedNetwork = 'Mastercard';
@@ -114,9 +115,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
     setState(() {
       _detectedNetwork = network;
       _cardBgColor = color;
-      if (_bankController.text == 'MasterCard' && network == 'Visa') {
-        _bankController.text = 'Visa Card';
-      }
     });
   }
 
@@ -600,29 +598,42 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 const SizedBox(height: 36),
 
                 // Action Button: SAVE CHANGES (Edit) or ADD CARD (New)
-                SizedBox(
-                  height: 56,
-                  child: ElevatedButton(
-                    key: widget.initialCard != null
-                        ? const Key('save_edited_card_button')
-                        : const Key('submit_add_card_button'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
-                      foregroundColor: Colors.white,
-                      elevation: 4,
-                      shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: _submit,
-                    child: Text(
-                      widget.initialCard != null ? 'SAVE CHANGES' : 'ADD CARD',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
+                NeoPopButton(
+                  key: widget.initialCard != null
+                      ? const Key('save_edited_card_button')
+                      : const Key('submit_add_card_button'),
+                  color: const Color(0xFF2563EB),
+                  buttonPosition: Position.center,
+                  onTapUp: () {
+                    HapticFeedback.mediumImpact();
+                    _submit();
+                  },
+                  onTapDown: () => HapticFeedback.lightImpact(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          widget.initialCard != null
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.add_card_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          widget.initialCard != null
+                              ? 'SAVE CHANGES'
+                              : 'ADD CARD',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -6,14 +6,18 @@ void main() {
   group('CardRepository Persistence and CRUD Tests', () {
     late CardRepository repository;
 
+    setUpAll(() async {
+      final initialRepo = CardRepository();
+      await initialRepo.clearAllCards();
+    });
+
     setUp(() {
       repository = CardRepository();
     });
 
-    test('loadCards loads default mock cards on initial launch', () async {
+    test('loadCards loads empty card list on clean initial launch', () async {
       final cards = await repository.loadCards();
-      expect(cards, isNotEmpty);
-      expect(cards.any((c) => c.nickname.contains('Millennia')), isTrue);
+      expect(cards, isEmpty);
     });
 
     test('addCard prepends new card and persists it', () async {

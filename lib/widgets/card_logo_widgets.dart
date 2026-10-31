@@ -165,11 +165,24 @@ class MastercardLogo extends StatelessWidget {
 /// Renders Visa Logo
 class VisaLogo extends StatelessWidget {
   final double height;
+  final bool onCard;
 
-  const VisaLogo({super.key, this.height = 24});
+  const VisaLogo({super.key, this.height = 22, this.onCard = true});
 
   @override
   Widget build(BuildContext context) {
+    if (onCard) {
+      return Text(
+        'VISA',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: height * 0.95,
+          fontWeight: FontWeight.w900,
+          fontStyle: FontStyle.italic,
+          letterSpacing: 2.0,
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -193,43 +206,53 @@ class VisaLogo extends StatelessWidget {
 /// Renders RuPay Logo
 class RupayLogo extends StatelessWidget {
   final double height;
+  final bool onCard;
 
-  const RupayLogo({super.key, this.height = 24});
+  const RupayLogo({super.key, this.height = 22, this.onCard = true});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'RuPay',
-            style: TextStyle(
-              color: const Color(0xFF0F4392),
-              fontSize: height * 0.7,
-              fontWeight: FontWeight.w900,
-              fontStyle: FontStyle.italic,
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'RuPay',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: height * 0.85,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 0.5,
           ),
-          const SizedBox(width: 3),
-          Container(
-            width: 4,
-            height: height * 0.7,
-            color: const Color(0xFFF37021),
+        ),
+        const SizedBox(width: 3),
+        Transform(
+          transform: Matrix4.skewX(-0.25),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 3.5,
+                height: height * 0.65,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF97316),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+              const SizedBox(width: 2),
+              Container(
+                width: 3.5,
+                height: height * 0.65,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 2),
-          Container(
-            width: 4,
-            height: height * 0.7,
-            color: const Color(0xFF00A651),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
