@@ -5,6 +5,7 @@ import '../main.dart';
 class AuthGuardScreen extends StatefulWidget {
   final AuthService? authService;
   final Widget? destination;
+  final Widget? child;
   final bool autoPrompt;
   final bool initiallyAuthenticated;
 
@@ -12,6 +13,7 @@ class AuthGuardScreen extends StatefulWidget {
     super.key,
     this.authService,
     this.destination,
+    this.child,
     this.autoPrompt = true,
     this.initiallyAuthenticated = false,
   });
@@ -49,12 +51,15 @@ class _AuthGuardScreenState extends State<AuthGuardScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Automatically re-lock wallet when app goes into background for privacy & security
-    if (state == AppLifecycleState.paused) {
-      setState(() {
-        _isAuthenticated = false;
-        _errorMessage = null;
-      });
+    // Automatically re-lock wallet when app goes into background or inactive for privacy & security
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (mounted) {
+        setState(() {
+          _isAuthenticated = false;
+          _errorMessage = null;
+        });
+      }
     } else if (state == AppLifecycleState.resumed &&
         !_isAuthenticated &&
         widget.autoPrompt) {
@@ -89,7 +94,7 @@ class _AuthGuardScreenState extends State<AuthGuardScreen>
   @override
   Widget build(BuildContext context) {
     if (_isAuthenticated) {
-      return widget.destination ?? const CardWalletScreen();
+      return widget.child ?? widget.destination ?? const CardWalletScreen();
     }
 
     final theme = Theme.of(context);
@@ -122,7 +127,9 @@ class _AuthGuardScreenState extends State<AuthGuardScreen>
                 Text(
                   'CardStack Locked',
                   style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontFamily: 'PlayfairDisplay',
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                     color: theme.colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,

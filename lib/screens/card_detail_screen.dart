@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/card_model.dart';
+import 'add_card_screen.dart';
 
 class CardDetailScreen extends StatefulWidget {
   final CardModel card;
@@ -21,6 +23,7 @@ class CardDetailScreen extends StatefulWidget {
 class _CardDetailScreenState extends State<CardDetailScreen> {
   late CardModel _card;
   bool _isCvvVisible = false;
+  Timer? _clipboardClearTimer;
 
   @override
   void initState() {
@@ -28,9 +31,27 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
     _card = widget.card;
   }
 
+  @override
+  void dispose() {
+    _clipboardClearTimer?.cancel();
+    super.dispose();
+  }
+
   void _copyToClipboard(String label, String value) {
     if (value.trim().isEmpty) return;
     Clipboard.setData(ClipboardData(text: value));
+
+    // Privacy & Security: Clear clipboard after 30 seconds so sensitive details are not left exposed
+    _clipboardClearTimer?.cancel();
+    _clipboardClearTimer = Timer(const Duration(seconds: 30), () async {
+      try {
+        final current = await Clipboard.getData(Clipboard.kTextPlain);
+        if (current?.text == value) {
+          await Clipboard.setData(const ClipboardData(text: ''));
+        }
+      } catch (_) {}
+    });
+
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -38,7 +59,9 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 10),
-            Text('$label copied to clipboard!'),
+            Expanded(
+              child: Text('$label copied to clipboard!'),
+            ),
           ],
         ),
         behavior: SnackBarBehavior.floating,
@@ -91,200 +114,25 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
     );
   }
 
-  void _showEditCardSheet() {
-    final formKey = GlobalKey<FormState>();
-    final nicknameController = TextEditingController(text: _card.nickname);
-    final bankController = TextEditingController(text: _card.bankName);
-    final nameController = TextEditingController(text: _card.cardholderName);
-    final numberController = TextEditingController(text: _card.cardNumber);
-    final expiryMonthController =
-        TextEditingController(text: _card.expiryMonth ?? '');
-    final expiryYearController =
-        TextEditingController(text: _card.expiryYear ?? '');
-    String cardType = _card.cardType;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          final theme = Theme.of(ctx);
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-            ),
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Edit Card',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      key: const Key('edit_nickname_field'),
-                      controller: nicknameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nickname',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Enter nickname'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('edit_bank_field'),
-                      controller: bankController,
-                      decoration: const InputDecoration(
-                        labelText: 'Bank Name',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Enter bank' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: numberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Card Number',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Enter card number'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Cardholder Name',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 80,
-                          child: TextFormField(
-                            controller: expiryMonthController,
-                            decoration: const InputDecoration(
-                              labelText: 'Month',
-                              hintText: 'MM',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 100,
-                          child: TextFormField(
-                            controller: expiryYearController,
-                            decoration: const InputDecoration(
-                              labelText: 'Year',
-                              hintText: 'YYYY',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: cardType,
-                            decoration: const InputDecoration(
-                              labelText: 'Type',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'credit', child: Text('Credit')),
-                              DropdownMenuItem(
-                                  value: 'debit', child: Text('Debit')),
-                              DropdownMenuItem(
-                                  value: 'prepaid', child: Text('Prepaid')),
-                              DropdownMenuItem(
-                                  value: 'gift', child: Text('Gift')),
-                            ],
-                            onChanged: (v) =>
-                                setSheetState(() => cardType = v ?? 'credit'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: FilledButton(
-                        key: const Key('save_edited_card_button'),
-                        onPressed: () {
-                          if (!formKey.currentState!.validate()) return;
-
-                          final updated = CardModel(
-                            id: _card.id,
-                            nickname: nicknameController.text.trim(),
-                            cardholderName: nameController.text.trim(),
-                            bankName: bankController.text.trim(),
-                            cardType: cardType,
-                            cardNetwork: _card.cardNetwork,
-                            cardNumber: numberController.text.trim(),
-                            expiryMonth: expiryMonthController.text.trim().isEmpty
-                                ? null
-                                : expiryMonthController.text.trim(),
-                            expiryYear: expiryYearController.text.trim().isEmpty
-                                ? null
-                                : expiryYearController.text.trim(),
-                            cvv: _card.cvv,
-                            colorHex: _card.colorHex,
-                          );
-
-                          setState(() {
-                            _card = updated;
-                          });
-                          widget.onCardUpdated?.call(updated);
-                          Navigator.of(ctx).pop();
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Card updated successfully!'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        child: const Text('Save Changes'),
-                      ),
-                    ),
-                  ],
-                ),
+  void _openEditCardScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddCardScreen(
+          initialCard: _card,
+          onCardAdded: (updated) {
+            setState(() {
+              _card = updated;
+            });
+            widget.onCardUpdated?.call(updated);
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Card updated successfully!'),
+                behavior: SnackBarBehavior.floating,
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -311,7 +159,7 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
             ),
             onSelected: (value) {
               if (value == 'edit') {
-                _showEditCardSheet();
+                _openEditCardScreen();
               } else if (value == 'delete') {
                 _confirmDeleteCard();
               }
@@ -560,29 +408,38 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
             const SizedBox(height: 10),
 
             // 3. Copy CVV
-            _CopyTile(
-              key: const Key('copy_cvv_tile'),
-              icon: Icons.security_rounded,
-              label: 'CVV',
-              value: _isCvvVisible
-                  ? (card.cvv ?? '789')
-                  : (card.cvv != null ? '•••' : '••• (Demo: 789)'),
-              trailingAction: IconButton(
-                icon: Icon(
-                  _isCvvVisible
-                      ? Icons.visibility_off_rounded
-                      : Icons.visibility_rounded,
-                  size: 20,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                tooltip: _isCvvVisible ? 'Hide CVV' : 'Show CVV',
-                onPressed: () {
-                  setState(() {
-                    _isCvvVisible = !_isCvvVisible;
-                  });
-                },
-              ),
-              onCopy: () => _copyToClipboard('CVV', card.cvv ?? '789'),
+            Builder(
+              builder: (context) {
+                final hasCvv = card.cvv != null && card.cvv!.trim().isNotEmpty;
+                return _CopyTile(
+                  key: const Key('copy_cvv_tile'),
+                  icon: Icons.security_rounded,
+                  label: 'CVV',
+                  value: hasCvv
+                      ? (_isCvvVisible ? card.cvv! : '•' * card.cvv!.length)
+                      : 'Not Stored',
+                  trailingAction: hasCvv
+                      ? IconButton(
+                          icon: Icon(
+                            _isCvvVisible
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          tooltip: _isCvvVisible ? 'Hide CVV' : 'Show CVV',
+                          onPressed: () {
+                            setState(() {
+                              _isCvvVisible = !_isCvvVisible;
+                            });
+                          },
+                        )
+                      : null,
+                  onCopy: hasCvv
+                      ? () => _copyToClipboard('CVV', card.cvv!)
+                      : null,
+                );
+              },
             ),
 
             const SizedBox(height: 28),

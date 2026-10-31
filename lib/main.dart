@@ -45,11 +45,15 @@ class CardStackApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFF0F141C),
       ),
-      home: AuthGuardScreen(
-        authService: authService,
-        initiallyAuthenticated: initiallyAuthenticated,
-        autoPrompt: autoPromptAuth,
-      ),
+      builder: (context, child) {
+        return AuthGuardScreen(
+          authService: authService,
+          initiallyAuthenticated: initiallyAuthenticated,
+          autoPrompt: autoPromptAuth,
+          child: child,
+        );
+      },
+      home: const CardWalletScreen(),
     );
   }
 }
@@ -65,7 +69,6 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
   final CardRepository _repository = CardRepository();
   List<CardModel> _cards = CardRepository.getMockCards();
   String _selectedFilter = 'All';
-  bool _isSearchExpanded = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -91,14 +94,42 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
     }
   }
 
+  int _countForFilter(String filter) {
+    if (filter == 'All') return _cards.length;
+    if (filter == 'Credit') {
+      return _cards.where((c) => c.cardType.toLowerCase() == 'credit').length;
+    }
+    if (filter == 'Debit') {
+      return _cards.where((c) => c.cardType.toLowerCase() == 'debit').length;
+    }
+    if (filter == 'Other') {
+      return _cards
+          .where((c) =>
+              c.cardType.toLowerCase() != 'credit' &&
+              c.cardType.toLowerCase() != 'debit')
+          .length;
+    }
+    return 0;
+  }
+
   List<CardModel> get _filteredCards {
     final query = _searchController.text.trim().toLowerCase();
     return _cards.where((c) {
       final matchesFilter = _selectedFilter == 'All' ||
-          c.cardType.toLowerCase() == _selectedFilter.toLowerCase();
+          (_selectedFilter == 'Credit' &&
+              c.cardType.toLowerCase() == 'credit') ||
+          (_selectedFilter == 'Debit' &&
+              c.cardType.toLowerCase() == 'debit') ||
+          (_selectedFilter == 'Other' &&
+              c.cardType.toLowerCase() != 'credit' &&
+              c.cardType.toLowerCase() != 'debit');
+
       final matchesSearch = query.isEmpty ||
           c.bankName.toLowerCase().contains(query) ||
-          c.nickname.toLowerCase().contains(query);
+          c.nickname.toLowerCase().contains(query) ||
+          c.cardholderName.toLowerCase().contains(query) ||
+          c.cardType.toLowerCase().contains(query);
+
       return matchesFilter && matchesSearch;
     }).toList();
   }
@@ -111,6 +142,7 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
             setState(() {
               _cards.insert(0, newCard);
             });
+            _repository.addCard(newCard);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -133,138 +165,233 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final filters = ['All', 'Credit', 'Debit', 'Prepaid', 'Gift'];
+    final isDark = theme.brightness == Brightness.dark;
+    const filterTabs = ['All', 'Credit', 'Debit', 'Other'];
 
     return Scaffold(
-      appBar: AppBar(
-        title: _isSearchExpanded
-            ? TextField(
-                key: const Key('bank_search_text_field'),
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                autofocus: true,
-                onChanged: (_) => setState(() {}),
-                style: const TextStyle(fontSize: 16),
-                decoration: InputDecoration(
-                  hintText: 'Search by bank name (e.g. HDFC)...',
-                  hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    fontSize: 15,
-                  ),
-                  border: InputBorder.none,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                            });
-                          },
-                        )
-                      : null,
-                ),
-              )
-            : const Text(
-                'CardStack',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-        elevation: 0,
-        actions: _isSearchExpanded
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: 'Close Search',
-                  onPressed: () {
-                    setState(() {
-                      _isSearchExpanded = false;
-                      _searchController.clear();
-                    });
-                  },
-                ),
-                const SizedBox(width: 8),
-              ]
-            : [
-                IconButton(
-                  icon: const Icon(Icons.search_rounded, size: 24),
-                  tooltip: 'Search Cards',
-                  onPressed: () {
-                    setState(() {
-                      _isSearchExpanded = true;
-                    });
-                    _searchFocusNode.requestFocus();
-                  },
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${_cards.length} Cards',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  key: const Key('add_card_appbar_button'),
-                  icon: const Icon(Icons.add_circle_outline_rounded, size: 24),
-                  tooltip: 'Add Card',
-                  onPressed: _onAddCardManuallySelected,
-                ),
-                const SizedBox(width: 8),
-              ],
-      ),
-      body: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Row(
+      backgroundColor: isDark ? const Color(0xFF0F141C) : Colors.white,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Top Header Row: "CardStack" and Blue "+" Button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        'Hello',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
+                      Container(
+                        width: 38,
+                        height: 38,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2563EB), Color(0xFF6366F1)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF2563EB).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.style_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '👋',
-                        style: TextStyle(fontSize: 22),
+                      Text(
+                        'CardStack',
+                        style: TextStyle(
+                          fontFamily: 'PlayfairDisplay',
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                          color: isDark ? Colors.white : const Color(0xFF111827),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                // Filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: filters.map((filter) {
-                      final isSelected = _selectedFilter == filter;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(filter),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedFilter = filter;
-                            });
-                          },
+                  Tooltip(
+                    message: 'Add Card',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: const Key('add_card_appbar_button'),
+                        onTap: _onAddCardManuallySelected,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withOpacity(0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 2. Search Bar: "Search cards, bank or type..."
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color:
+                      isDark ? const Color(0xFF1E2638) : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TextField(
+                  key: const Key('bank_search_text_field'),
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onChanged: (_) => setState(() {}),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : const Color(0xFF111827),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search cards, bank or type...',
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white38 : const Color(0xFF9CA3AF),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            color: const Color(0xFF9CA3AF),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
+              ),
+            ),
+
+            // 3. Filter Pills: "All 6", "Credit 3", "Debit 2", "Other 1"
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              child: Row(
+                children: filterTabs.map((filter) {
+                  final isSelected = _selectedFilter == filter;
+                  final count = _countForFilter(filter);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      key: Key('filter_tab_${filter.toLowerCase()}'),
+                      onTap: () {
+                        setState(() {
+                          _selectedFilter = filter;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF2563EB)
+                              : (isDark
+                                  ? const Color(0xFF1E2638)
+                                  : const Color(0xFFF9FAFB)),
+                          borderRadius: BorderRadius.circular(24),
+                          border: isSelected
+                              ? null
+                              : Border.all(
+                                  color: isDark
+                                      ? Colors.white12
+                                      : const Color(0xFFE5E7EB),
+                                  width: 1,
+                                ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF2563EB)
+                                        .withOpacity(0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              filter,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : (isDark
+                                        ? Colors.white70
+                                        : const Color(0xFF374151)),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$count',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white.withOpacity(0.9)
+                                    : (isDark
+                                        ? Colors.white38
+                                        : const Color(0xFF9CA3AF)),
+                                fontSize: 13,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
                 // Card list
                 Expanded(
                   child: _filteredCards.isEmpty
@@ -308,11 +435,13 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
                                     _cards[idx] = updated;
                                   }
                                 });
+                                _repository.updateCard(updated);
                               },
                               onCardDeleted: (deletedId) {
                                 setState(() {
                                   _cards.removeWhere((c) => c.id == deletedId);
                                 });
+                                _repository.deleteCard(deletedId);
                               },
                             );
                           },
@@ -320,6 +449,7 @@ class _CardWalletScreenState extends State<CardWalletScreen> {
                 ),
               ],
             ),
+          ),
     );
   }
 }

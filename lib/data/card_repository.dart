@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/card_model.dart';
 
 class CardRepository {
@@ -142,29 +144,119 @@ class CardRepository {
   ]
 }''';
 
-  /// Loads cards from the asset file `assets/data/cards.json` or falls back to
-  /// [rawMockCardsJson].
+
+  static const String _storageFileName = 'cards_store.json';
+  static List<CardModel>? _inMemoryTestStore;
+
+  /// Loads cards from persistent device storage, falling back to assets/mock data on first launch.
   Future<List<CardModel>> loadCards() async {
+    // 1. If in-memory test store is populated, use it
+    if (_inMemoryTestStore != null) {
+      return List<CardModel>.from(_inMemoryTestStore!);
+    }
+
+    try {
+      final file = await _getStorageFile();
+      if (file != null && await file.exists()) {
+        final content = await file.readAsString();
+        if (content.trim().isNotEmpty) {
+          final loaded = parseCards(content);
+          if (loaded.isNotEmpty) {
+            return loaded;
+          }
+        }
+      }
+    } catch (_) {
+      // Platform channel error (e.g. during test runner) or read error
+    }
+
+    // 2. Fall back to asset file or raw mock cards on first run
+    List<CardModel> initialCards;
     try {
       final jsonString = await rootBundle.loadString(_assetPath);
-      return parseCards(jsonString);
+      initialCards = parseCards(jsonString);
     } catch (_) {
-      // Fallback for tests or before assets are bundled
-      return parseCards(rawMockCardsJson);
+      initialCards = parseCards(rawMockCardsJson);
+    }
+
+    // Persist initial cards so future launches use the persistent copy
+    await saveCards(initialCards);
+    return initialCards;
+  }
+
+  /// Saves the complete list of cards atomically to disk to prevent data corruption.
+  Future<void> saveCards(List<CardModel> cards) async {
+    _inMemoryTestStore = List<CardModel>.from(cards);
+
+    try {
+      final file = await _getStorageFile();
+      if (file != null) {
+        final data = {
+          'version': 1,
+          'updated_at': DateTime.now().toIso8601String(),
+          'cards': cards.map((c) => c.toJson()).toList(),
+        };
+        final tempFile = File('${file.path}.tmp');
+        await tempFile.writeAsString(jsonEncode(data), flush: true);
+        await tempFile.rename(file.path);
+      }
+    } catch (_) {
+      // Handle test environment or storage error gracefully
+    }
+  }
+
+  /// Adds a new card to storage.
+  Future<void> addCard(CardModel card) async {
+    final current = await loadCards();
+    current.insert(0, card);
+    await saveCards(current);
+  }
+
+  /// Updates an existing card in storage.
+  Future<void> updateCard(CardModel card) async {
+    final current = await loadCards();
+    final idx = current.indexWhere((c) => c.id == card.id);
+    if (idx != -1) {
+      current[idx] = card;
+      await saveCards(current);
+    }
+  }
+
+  /// Deletes a card from storage by its ID.
+  Future<void> deleteCard(String id) async {
+    final current = await loadCards();
+    current.removeWhere((c) => c.id == id);
+    await saveCards(current);
+  }
+
+  /// Helper to locate the application documents storage file safely.
+  Future<File?> _getStorageFile() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      return File('${dir.path}/$_storageFileName');
+    } catch (_) {
+      return null;
     }
   }
 
   /// Synchronous helper to get parsed cards directly from memory
   static List<CardModel> getMockCards() {
+    if (_inMemoryTestStore != null) {
+      return List<CardModel>.from(_inMemoryTestStore!);
+    }
     return parseCards(rawMockCardsJson);
   }
 
   /// Parses a JSON string containing the 'cards' list
   static List<CardModel> parseCards(String jsonString) {
-    final Map<String, dynamic> data = json.decode(jsonString);
-    final List<dynamic> cardsJson = data['cards'] as List<dynamic>? ?? [];
-    return cardsJson
-        .map((card) => CardModel.fromJson(card as Map<String, dynamic>))
-        .toList();
+    try {
+      final Map<String, dynamic> data = json.decode(jsonString);
+      final List<dynamic> cardsJson = data['cards'] as List<dynamic>? ?? [];
+      return cardsJson
+          .map((card) => CardModel.fromJson(card as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 }

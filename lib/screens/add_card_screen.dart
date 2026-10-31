@@ -3,12 +3,18 @@ import 'package:flutter/services.dart';
 import '../models/card_model.dart';
 import '../widgets/card_logo_widgets.dart';
 import '../services/card_network_detector.dart';
+import '../services/card_validator.dart';
 import 'card_scanner_screen.dart';
 
 class AddCardScreen extends StatefulWidget {
   final ValueChanged<CardModel> onCardAdded;
+  final CardModel? initialCard;
 
-  const AddCardScreen({super.key, required this.onCardAdded});
+  const AddCardScreen({
+    super.key,
+    required this.onCardAdded,
+    this.initialCard,
+  });
 
   @override
   State<AddCardScreen> createState() => _AddCardScreenState();
@@ -22,6 +28,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
   final TextEditingController _bankController = TextEditingController(text: 'MasterCard');
+  late final TextEditingController _nicknameController;
 
   String _detectedNetwork = 'Mastercard';
   Color _cardBgColor = const Color(0xFF0C1938);
@@ -30,6 +37,26 @@ class _AddCardScreenState extends State<AddCardScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialCard;
+    if (initial != null) {
+      _nicknameController = TextEditingController(text: initial.nickname);
+      _numberController.text = initial.cardNumber;
+      _nameController.text = initial.cardholderName;
+      _bankController.text = initial.bankName;
+      _cvvController.text = initial.cvv ?? '';
+      if (initial.expiryMonth != null && initial.expiryYear != null) {
+        final yr = initial.expiryYear!.length == 4
+            ? initial.expiryYear!.substring(2)
+            : initial.expiryYear!;
+        _expiryController.text = '${initial.expiryMonth}/$yr';
+      }
+      _detectedNetwork = initial.cardNetwork;
+      _cardBgColor = initial.cardColor;
+      _manualOverride = true;
+    } else {
+      _nicknameController = TextEditingController();
+    }
+    _nicknameController.addListener(() => setState(() {}));
     _numberController.addListener(_onNumberChanged);
     _nameController.addListener(() => setState(() {}));
     _expiryController.addListener(_onExpiryChanged);
@@ -39,6 +66,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
   @override
   void dispose() {
+    _nicknameController.dispose();
     _numberController.removeListener(_onNumberChanged);
     _numberController.dispose();
     _nameController.dispose();
@@ -153,10 +181,21 @@ class _AddCardScreenState extends State<AddCardScreen> {
     final bank = _bankController.text.trim().isEmpty
         ? _detectedNetwork
         : _bankController.text.trim();
+    final nickname = _nicknameController.text.trim().isNotEmpty
+        ? _nicknameController.text.trim()
+        : '$bank $_detectedNetwork';
 
     String? month;
     String? year;
-    final expParts = _expiryController.text.trim().split('/');
+    final expText = _expiryController.text.trim();
+    List<String> expParts;
+    if (expText.contains('/')) {
+      expParts = expText.split('/');
+    } else if (expText.length == 4) {
+      expParts = [expText.substring(0, 2), expText.substring(2)];
+    } else {
+      expParts = [expText];
+    }
     if (expParts.isNotEmpty) month = expParts[0];
     if (expParts.length > 1) {
       final y = expParts[1];
@@ -164,17 +203,19 @@ class _AddCardScreenState extends State<AddCardScreen> {
     }
 
     final newCard = CardModel(
-      id: 'card_${DateTime.now().millisecondsSinceEpoch}',
-      nickname: '$bank $_detectedNetwork',
+      id: widget.initialCard?.id ??
+          'card_${DateTime.now().millisecondsSinceEpoch}',
+      nickname: nickname,
       cardholderName: name,
       bankName: bank,
-      cardType: 'credit',
+      cardType: widget.initialCard?.cardType ?? 'credit',
       cardNetwork: _detectedNetwork,
       cardNumber: number,
       expiryMonth: month,
       expiryYear: year,
       cvv: _cvvController.text.trim().isEmpty ? null : _cvvController.text.trim(),
-      colorHex: '#${_cardBgColor.value.toRadixString(16).substring(2).toUpperCase()}',
+      colorHex:
+          '#${_cardBgColor.value.toRadixString(16).substring(2).toUpperCase()}',
     );
 
     widget.onCardAdded(newCard);
@@ -198,11 +239,17 @@ class _AddCardScreenState extends State<AddCardScreen> {
     final displayBank = _bankController.text.trim().isEmpty
         ? _detectedNetwork
         : _bankController.text.trim();
+    final displayNickname = _nicknameController.text.trim().isNotEmpty
+        ? _nicknameController.text.trim()
+        : displayBank;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F141C) : Colors.white,
       appBar: AppBar(
-        title: const Text('Add Card', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.initialCard != null ? 'Edit Card' : 'Add Card',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -240,18 +287,33 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Top Row: Bank Name and Logo
+                      // Top Row: Bank Name, Nickname and Logo
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            displayBank,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayBank.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  letterSpacing: 1.1,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                displayNickname,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                           NetworkLogoDispatcher(network: _detectedNetwork),
                         ],
@@ -369,12 +431,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                       ),
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.replaceAll(' ', '').length < 13) {
-                      return 'Enter a valid 13-19 digit card number';
-                    }
-                    return null;
-                  },
+                  validator: (v) => CardValidator.validateCardNumber(v),
                 ),
                 const SizedBox(height: 8),
 
@@ -494,12 +551,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                           LengthLimitingTextInputFormatter(4),
                           _ExpiryDateInputFormatter(),
                         ],
-                        validator: (v) {
-                          if (v == null || v.trim().length < 4) {
-                            return 'Enter MM/YY';
-                          }
-                          return null;
-                        },
+                        validator: CardValidator.validateExpiry,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -514,40 +566,54 @@ class _AddCardScreenState extends State<AddCardScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(4),
                         ],
+                        validator: (v) => CardValidator.validateCvv(v, cardNetwork: _detectedNetwork),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Field 5: Bank / Nickname
+                // Field 5: Bank Name
                 _InputField(
+                  key: const Key('edit_bank_field'),
                   controller: _bankController,
                   hintText: 'Bank Name (optional)',
                   icon: Icons.account_balance_outlined,
                   textCapitalization: TextCapitalization.words,
                 ),
+                const SizedBox(height: 16),
+
+                // Field 6: Card Nickname
+                _InputField(
+                  key: const Key('edit_nickname_field'),
+                  controller: _nicknameController,
+                  hintText: 'Card Nickname (e.g. Millennia, Regalia)',
+                  icon: Icons.label_outline_rounded,
+                  textCapitalization: TextCapitalization.words,
+                ),
 
                 const SizedBox(height: 36),
 
-                // ADD CARD Button
+                // Action Button: SAVE CHANGES (Edit) or ADD CARD (New)
                 SizedBox(
                   height: 56,
                   child: ElevatedButton(
-                    key: const Key('submit_add_card_button'),
+                    key: widget.initialCard != null
+                        ? const Key('save_edited_card_button')
+                        : const Key('submit_add_card_button'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C5CE7),
+                      backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
                       elevation: 4,
-                      shadowColor: const Color(0xFF6C5CE7).withOpacity(0.4),
+                      shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     onPressed: _submit,
-                    child: const Text(
-                      'ADD CARD',
-                      style: TextStyle(
+                    child: Text(
+                      widget.initialCard != null ? 'SAVE CHANGES' : 'ADD CARD',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -577,6 +643,7 @@ class _InputField extends StatelessWidget {
   final Widget? suffixIcon;
 
   const _InputField({
+    super.key,
     required this.controller,
     required this.hintText,
     required this.icon,

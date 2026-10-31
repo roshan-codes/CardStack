@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -115,13 +116,23 @@ class _CardScannerScreenState extends State<CardScannerScreen>
     try {
       if (_cameraController != null && _isCameraInitialized) {
         final image = await _cameraController!.takePicture();
-        final inputImage = InputImage.fromFilePath(image.path);
-        final recognizedText = await _textRecognizer.processImage(inputImage);
-
-        final lines = recognizedText.blocks
-            .expand((b) => b.lines)
-            .map((l) => l.text)
-            .toList();
+        List<String> lines = [];
+        try {
+          final inputImage = InputImage.fromFilePath(image.path);
+          final recognizedText = await _textRecognizer.processImage(inputImage);
+          lines = recognizedText.blocks
+              .expand((b) => b.lines)
+              .map((l) => l.text)
+              .toList();
+        } finally {
+          // Zero-tolerance security: Clean up physical card photo from cache immediately
+          try {
+            final file = File(image.path);
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
+        }
 
         final parsed = CardOcrParser.parse(lines);
         if (mounted) {

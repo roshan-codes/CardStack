@@ -3,27 +3,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:card_stack/main.dart';
 
 void main() {
-  testWidgets('CardStack renders cards, handles add dialog, and locks app',
+  testWidgets('CardStack renders My Cards screen, handles add and details',
       (WidgetTester tester) async {
     await tester.pumpWidget(const CardStackApp(initiallyAuthenticated: true));
     await tester.pumpAndSettle();
 
-    // Verify app title, hello greeting, and cards count badge
+    // Verify title "CardStack" and filter tabs
     expect(find.text('CardStack'), findsOneWidget);
-    expect(find.text('Hello'), findsOneWidget);
-    expect(find.text('10 Cards'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Credit'), findsOneWidget);
+    expect(find.text('Debit'), findsOneWidget);
+    expect(find.text('Other'), findsOneWidget);
+
+    // Verify search bar placeholder
+    expect(find.text('Search cards, bank or type...'), findsOneWidget);
 
     // Verify first card
     expect(find.text('HDFC Millennia'), findsOneWidget);
     expect(find.text('XXXX XXXX XXXX 4567'), findsOneWidget);
 
-    // Tap the Add Card button in AppBar
+    // Tap the Add Card button (+)
     final addButton = find.byTooltip('Add Card');
     expect(addButton, findsOneWidget);
     await tester.tap(addButton);
     await tester.pumpAndSettle();
 
-    // Verify AddCardScreen opens directly by default (no dialog)
+    // Verify AddCardScreen opens directly
     expect(find.text('ADD CARD'), findsOneWidget);
     expect(find.byKey(const Key('submit_add_card_button')), findsOneWidget);
     expect(find.byKey(const Key('scan_card_number_button')), findsOneWidget);
@@ -43,10 +48,10 @@ void main() {
     // Tap back button to return to wallet
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
-    expect(find.text('Hello'), findsOneWidget);
+    expect(find.text('CardStack'), findsOneWidget);
   });
 
-  testWidgets('Search bar expands and filters cards by bank name',
+  testWidgets('Search bar and filter tabs filter cards in realtime',
       (WidgetTester tester) async {
     await tester.pumpWidget(const CardStackApp(initiallyAuthenticated: true));
     await tester.pumpAndSettle();
@@ -55,13 +60,7 @@ void main() {
     expect(find.text('HDFC Millennia'), findsOneWidget);
     expect(find.text('ICICI Amazon Pay'), findsOneWidget);
 
-    // Click Search icon in AppBar
-    final searchButton = find.byTooltip('Search Cards');
-    expect(searchButton, findsOneWidget);
-    await tester.tap(searchButton);
-    await tester.pumpAndSettle();
-
-    // Verify search text field appears
+    // Verify search field is always present
     final searchField = find.byKey(const Key('bank_search_text_field'));
     expect(searchField, findsOneWidget);
 
@@ -80,14 +79,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No cards found for "Citibank"'), findsOneWidget);
 
-    // Close search
-    final closeButton = find.byTooltip('Close Search');
-    expect(closeButton, findsOneWidget);
-    await tester.tap(closeButton);
+    // Clear search
+    await tester.enterText(searchField, '');
     await tester.pumpAndSettle();
 
-    // Verify search is collapsed and all cards return
+    // Verify all cards return
     expect(find.text('HDFC Millennia'), findsOneWidget);
     expect(find.text('ICICI Amazon Pay'), findsOneWidget);
+
+    // Test filter tabs: tap "Debit"
+    await tester.tap(find.byKey(const Key('filter_tab_debit')));
+    await tester.pumpAndSettle();
+
+    // Verify only debit cards shown
+    expect(find.text('HDFC Salary Account'), findsOneWidget);
+    expect(find.text('HDFC Millennia'), findsNothing);
+
+    // Return to "All"
+    await tester.tap(find.byKey(const Key('filter_tab_all')));
+    await tester.pumpAndSettle();
+    expect(find.text('HDFC Millennia'), findsOneWidget);
   });
 }
